@@ -52,5 +52,44 @@ app.post('/api/directions', async (req, res) => {
   }
 });
 
+app.get('/api/geocode', async (req, res) => {
+    try {
+      const { query } = req.query;
+      
+      if (!query) {
+        return res.status(400).json({ error: 'Search query is required' });
+      }
+      
+      console.log(`Geocoding: "${query}"`);
+      
+      const response = await axios.get('https://api.openrouteservice.org/geocode/search', {
+        params: {
+          text: query,
+          size: 5, 
+          'boundary.country': 'RO' 
+        },
+        headers: {
+          'Authorization': `Bearer ${ORS_API_KEY}`,
+          'Accept': 'application/json'
+        }
+      });
+  
+  
+      const simplifiedResults = response.data.features.map(feature => ({
+        place_name: feature.properties.label,
+        center: feature.geometry.coordinates,
+        properties: feature.properties
+      }));
+  
+      res.json(simplifiedResults);
+    } catch (error) {
+      console.error('Error geocoding:', error.response?.data || error.message);
+      res.status(500).json({ 
+        error: 'Geocoding failed',
+        details: error.response?.data || error.message 
+      });
+    }
+  });
+
 module.exports = app;
 
