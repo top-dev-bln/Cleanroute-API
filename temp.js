@@ -1,5 +1,17 @@
+require('dotenv').config();
+const express = require('express');
+const axios = require('axios');
+const cors = require('cors');
 
-const ORS_API_KEY = "5b3ce3597851110001cf624883bee069829b4c9d91a8c62da78aa574";
+
+const app = express();
+const ORS_API_KEY = process.env.ORS_API_KEY;
+
+app.use(cors());
+app.use(express.json());
+
+
+
 
   
 
