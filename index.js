@@ -5,14 +5,15 @@ const cors = require('cors');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
+
 app.use(cors());
 app.use(express.json());
 
-// API Key for OpenRouteService
+
 const ORS_API_KEY = "5b3ce3597851110001cf624883bee069829b4c9d91a8c62da78aa574";
 
-// Route for fetching directions
+
+
 app.post('/api/directions', async (req, res) => {
   try {
     const { start, end, profile } = req.body;
@@ -21,7 +22,7 @@ app.post('/api/directions', async (req, res) => {
       return res.status(400).json({ error: 'Start and end points are required' });
     }
 
-    // Convert [lat, lng] to [lng, lat] for ORS API
+  
     const startCoord = [start[1], start[0]];
     const endCoord = [end[1], end[0]];
 
@@ -51,12 +52,7 @@ app.post('/api/directions', async (req, res) => {
   }
 });
 
-// Basic test route
-app.get('/api/test', (req, res) => {
-  res.json({ message: 'Server is working!' });
-});
 
-// Start the server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
