@@ -1,3 +1,14 @@
+const express = require('express');
+const axios = require('axios');
+const cors = require('cors');
+
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+
+app.use(cors());
+app.use(express.json());
+
 
 const ORS_API_KEY = "5b3ce3597851110001cf624883bee069829b4c9d91a8c62da78aa574";
 
@@ -41,4 +52,7 @@ app.post('/api/directions', async (req, res) => {
   }
 });
 
-module.exports = app;
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
