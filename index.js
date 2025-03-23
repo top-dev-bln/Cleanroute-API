@@ -474,89 +474,63 @@ function createGrid(minLat, minLng, maxLat, maxLng, gridSize) {
 
 // Advanced IDW interpolation for AQI values
 function advancedInterpolateAQI(point, stations) {
-  // If no stations are available, return a default value
+  // Dacă nu există senzori, returnează o valoare implicită
   if (!stations || stations.length === 0) {
     return { value: 50, reliability: 0 };
   }
-  
-  // If only one station is available, use its value
+
+  // Dacă există un singur senzor, folosește valoarea acestuia
   if (stations.length === 1) {
-    return { 
-      value: stations[0].aqi,
-      reliability: 0.9
-    };
+    return { value: stations[0].aqi, reliability: 0.9 };
   }
 
-  // Calculate distances to all stations
+  // Calculează distanța de la punctul curent la fiecare senzor
   const stationDistances = stations.map(station => {
-    const distance = haversineDistance(
-      point.lat, point.lng,
-      station.lat, station.lon
-    );
-    return {
-      station,
-      distance: distance
-    };
+    const distance = haversineDistance(point.lat, point.lng, station.lat, station.lon);
+    return { station, distance };
   });
-  
-  // Sort by distance
+
+  // Sortează senzorii după distanță (de la cel mai apropiat la cel mai îndepărtat)
   stationDistances.sort((a, b) => a.distance - b.distance);
-  
-  // Use only the nearest 5 stations, or fewer if not available
+
+  // Folosește doar cei mai apropiați 5 senzori
   const nearestStations = stationDistances.slice(0, Math.min(5, stationDistances.length));
-  
-  // Calculate weights based on inverse distance with adaptive power
+
+  // Calculează greutățile folosind metoda Inverse Distance Weighting (IDW)
   let weightedSum = 0;
   let weightSum = 0;
   let minDistance = nearestStations[0].distance;
   let maxDistance = nearestStations[nearestStations.length - 1].distance;
-  let distanceRange = maxDistance - minDistance || 1; // Avoid division by zero
-  
+  let distanceRange = maxDistance - minDistance || 1; // Evită împărțirea la zero
+
   nearestStations.forEach(({ station, distance }) => {
-    // Adjust power based on distance - points further away have less influence
     const normalizedDistance = (distance - minDistance) / distanceRange;
-    const power = 2 + normalizedDistance * 2; // Power between 2 and 4
-    
-    // Small constant to avoid division by zero
-    const epsilon = 0.001;
-    
-    // Weight calculation with smoothing for very close points
+    const power = 2 + normalizedDistance * 2; // Ajustează puterea în funcție de distanță
+    const epsilon = 0.001; // Evită împărțirea la zero
     const weight = 1 / Math.pow(Math.max(distance, epsilon), power);
-    
     weightedSum += station.aqi * weight;
     weightSum += weight;
   });
-  
-  // Calculate the interpolated value
+
+  // Calculează valoarea interpolată
   const interpolatedValue = weightSum > 0 ? weightedSum / weightSum : 50;
-  
-  // Calculate reliability - higher when close to stations
-  const reliability = Math.min(
-    1.0, 
-    Math.max(0.1, 1.0 - (minDistance / 10)) // 10km distance = 0 reliability
-  );
-  
-  return { 
-    value: Math.round(interpolatedValue),
-    reliability: reliability
-  };
+
+  // Calculează fiabilitatea estimării (mai mare pentru punctele apropiate de senzori)
+  const reliability = Math.min(1.0, Math.max(0.1, 1.0 - (minDistance / 10)));
+
+  return { value: Math.round(interpolatedValue), reliability };
 }
 
 // Haversine distance calculation for more accurate earth distances
 function haversineDistance(lat1, lon1, lat2, lon2) {
-  const R = 6371; // Radius of the Earth in km
+  const R = 6371; // Raza Pământului în km
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
-  
-  const a = 
-    Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-    Math.sin(dLon/2) * Math.sin(dLon/2);
-  
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  const distance = R * c; // Distance in km
-  
-  return distance;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c; // Distanța în km
 }
 
 // Add the helper function for getting route bounds before it's called
@@ -583,56 +557,77 @@ function getBoundsFromCoordinates(coordinates) {
 
 // Helper function to calculate average AQI along a route
 function calculateRouteAqi(routePoints, sensors) {
-  return calculateDetailedRouteAqi(routePoints, sensors).avgAqi;
+  // 1. Eșantionează punctele de pe rută pentru a reduce complexitatea
+  // Folosim 20 de puncte eșantionate pentru a calcula AQI-ul mediu
+  const sampledPoints = sampleRoutePoints(routePoints, 20);
+
+  // 2. Calculează AQI pentru fiecare punct eșantionat
+  const aqiValues = sampledPoints.map(point => {
+    // Folosim interpolarea avansată pentru a estima AQI-ul în punctul respectiv
+    const interpolatedValue = advancedInterpolateAQI(point, sensors);
+    return interpolatedValue.value; // Returnează valoarea AQI estimată
+  }).filter(value => value > 0); // Filtrează valorile invalide (AQI <= 0)
+
+  // 3. Dacă nu există valori valide, returnează o valoare implicită
+  if (aqiValues.length === 0) {
+    return 50; // Valoare implicită pentru AQI (moderat)
+  }
+
+  // 4. Calculează media AQI pentru toate punctele eșantionate
+  const sum = aqiValues.reduce((acc, val) => acc + val, 0); // Suma tuturor valorilor AQI
+  const avgAqi = sum / aqiValues.length; // Media AQI
+
+  // 5. Returnează media AQI calculată
+  return avgAqi;
 }
 
 // Function to sample points along a route more evenly
 function sampleRoutePoints(routePoints, minSamples) {
+  // Dacă ruta are mai puține puncte decât numărul minim de eșantioane, returnează toate punctele
   if (routePoints.length <= minSamples) {
-    return routePoints; // Return all points if we don't have many
+    return routePoints;
   }
-  
+
   const result = [];
-  // Always include start and end points
+  // Adaugă primul punct (start)
   result.push(routePoints[0]);
-  
-  // Calculate total route distance
+
+  // Calculează distanța totală a rutei
   let totalDistance = 0;
   for (let i = 1; i < routePoints.length; i++) {
     totalDistance += haversineDistance(
-      routePoints[i-1].lat, routePoints[i-1].lng,
+      routePoints[i - 1].lat, routePoints[i - 1].lng,
       routePoints[i].lat, routePoints[i].lng
     );
   }
-  
-  // Calculate segment length to achieve even sampling
+
+  // Calculează lungimea segmentului pentru eșantionare
   const segmentLength = totalDistance / (minSamples - 1);
-  
+
   let accumulatedDistance = 0;
   let lastAddedIndex = 0;
-  
-  // Add points approximately every segmentLength distance
+
+  // Adaugă puncte aproximativ la fiecare segmentLength distanță
   for (let i = 1; i < routePoints.length - 1; i++) {
     const segmentDistance = haversineDistance(
-      routePoints[i-1].lat, routePoints[i-1].lng,
+      routePoints[i - 1].lat, routePoints[i - 1].lng,
       routePoints[i].lat, routePoints[i].lng
     );
-    
+
     accumulatedDistance += segmentDistance;
-    
-    if (accumulatedDistance >= segmentLength || 
-        (i - lastAddedIndex) > routePoints.length / minSamples * 2) {
+
+    if (accumulatedDistance >= segmentLength || (i - lastAddedIndex) > routePoints.length / minSamples * 2) {
       result.push(routePoints[i]);
       lastAddedIndex = i;
       accumulatedDistance = 0;
     }
   }
-  
-  // Add the end point if it's not already included
+
+  // Adaugă ultimul punct (end) dacă nu a fost deja adăugat
   if (result[result.length - 1] !== routePoints[routePoints.length - 1]) {
     result.push(routePoints[routePoints.length - 1]);
   }
-  
+
   return result;
 }
 
