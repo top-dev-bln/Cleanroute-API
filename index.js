@@ -927,14 +927,14 @@ app.post('/api/healthy-route', async (req, res) => {
     const healthyRoutes = [];
     
     // Generate and evaluate at most 3 alternative routes to reduce API calls
-    const waypointsToTry = waypoints.slice(0, 30); // Try up to 30 waypoints
+    const waypointsToTry = findPotentialWaypoints(standardRouteCoordinates).slice(0, 12);
     
     // Ensure we only try alternative routes if the standard route has a measurable AQI
     if (standardRouteAqi > 0) {
       for (const waypoint of waypointsToTry) {
         try {
           // Add delay between API calls to avoid bursting
-          await delay(300); // Reduce delay to 300ms
+          await delay(500);
           
           // Create a route through this waypoint with retry logic
           const alternativeRouteResponse = await fetchWithRetry(
@@ -953,8 +953,8 @@ app.post('/api/healthy-route', async (req, res) => {
                 }
               );
             },
-            5, // Increase retries to 5
-            1000 // Increase initial delay to 1 second
+            2, // fewer retries for alternates
+            2000
           );
           
           if (alternativeRouteResponse.data && alternativeRouteResponse.data.features && alternativeRouteResponse.data.features.length > 0) {
@@ -1428,7 +1428,7 @@ app.post('/api/healthy-route', async (req, res) => {
     
     // Choose the best waypoints to try (prioritize ones in cleaner areas)
     // We'll try more waypoints to have better chances of finding good routes
-    const waypointsToTry = waypoints.slice(0, 30); // Try up to 30 waypoints
+    const waypointsToTry = waypoints.slice(0, 16); // Try up to 16 waypoints
     
     // Ensure we only try alternative routes if the standard route has a measurable AQI
     if (standardRouteAqi > 0) {
@@ -1436,7 +1436,7 @@ app.post('/api/healthy-route', async (req, res) => {
       for (const waypoint of waypointsToTry) {
         try {
           // Add delay between API calls to avoid bursting
-          await delay(300); // Reduce delay to 300ms
+          await delay(500);
           
           // Create a route through this waypoint with retry logic
           const alternativeRouteResponse = await fetchWithRetry(
@@ -1455,8 +1455,8 @@ app.post('/api/healthy-route', async (req, res) => {
                 }
               );
             },
-            5, // Increase retries to 5
-            1000 // Increase initial delay to 1 second
+            2, // fewer retries for alternates
+            2000
           );
           
           if (alternativeRouteResponse.data && alternativeRouteResponse.data.features && alternativeRouteResponse.data.features.length > 0) {
